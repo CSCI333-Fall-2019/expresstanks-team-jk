@@ -10,11 +10,10 @@ var oldTankx, oldTanky, oldTankHeading;
 var fps = 60; // Frames per second
 var PlayerName = "";
 var DEBUG = 0;
-var loopCount = 0.0;  // Keep a running counter to handle animations
 
 // Initial Setup
 function setup() {
-
+  
   // Get the Player
   PlayerName = document.getElementById('playerName').value;
   console.log('Player: ' + PlayerName);
@@ -25,9 +24,9 @@ function setup() {
 
   // Set window size and push to the main screen
   // Good DEV size
-  win = { width: 600, height: 600 };
+  win = { width: 800, height: 500 };
   // Good PROD size
-//  win = { width: 900, height: 700 };
+  //win = { width: 900, height: 700 };
   var canvas = createCanvas(win.width, win.height);
   canvas.parent('sketch-holder');
 
@@ -41,6 +40,7 @@ function setup() {
   // All the socket method handlers
   socket.on('ServerReadyAddNew', ServerReadyAddNew);
   socket.on('ServerNewTankAdd', ServerNewTankAdd);
+  socket.on('ServerTankReduceHealth', ServerTankReduceHealth); // Nic
   socket.on('ServerTankRemove', ServerTankRemove);
   socket.on('ServerMoveTank', ServerMoveTank);
   socket.on('ServerResetAll', ServerResetAll);
@@ -57,12 +57,6 @@ function setup() {
 // Draw the screen and process the position updates
 function draw() {
     background(0);
-
-    // Loop counter
-    if(loopCount > 359*10000)
-      loopCount = 0;
-    else
-      loopCount++;
 
     // Process shots
     for (var i = shots.length - 1; i >= 0; i--) {
@@ -102,22 +96,6 @@ function draw() {
             tanks[t].render();
         }
       }
-      
-      // Demo Spinning Power-Up
-      /*
-      push();
-        translate(win.width/2, win.height/2);
-        rotate(radians(this.loopCount));
-        fill(color(255, 204, 0));
-        strokeWeight(0);
-        rect(0, 0, 20, 20);
-        textAlign(CENTER);
-        fill(255);
-        stroke(255);
-        text("B", 0, 0);
-      pop();
-      */
-
     }
 
       // To keep this program from being too chatty => Only send server info if something has changed
@@ -131,9 +109,9 @@ function draw() {
         oldTanky = tanks[myTankIndex].pos.y;
         oldTankHeading = tanks[myTankIndex].heading;
       }
-    }
+      
+    }    
     
-
   // Handling pressing a Keys
   function keyPressed() {
 
@@ -153,15 +131,17 @@ function draw() {
       socket.emit('ClientNewShot', newShot);
       return;
     } else if (keyCode == RIGHT_ARROW) {  // Move Right
-      tanks[myTankIndex].setRotation(0.1);
+      tanks[myTankIndex].setRotation(0.04);      
+
     } else if (keyCode == LEFT_ARROW) {   // Move Left
-      tanks[myTankIndex].setRotation(-0.1);
+      tanks[myTankIndex].setRotation(-0.04);  
+
     } else if (keyCode == UP_ARROW) {     // Move Forward
       tanks[myTankIndex].moveForward(1.0);
+
     } else if (keyCode == DOWN_ARROW) {   // Move Back
       tanks[myTankIndex].moveForward(-1.0);
     }
-
 
   }
 
@@ -196,6 +176,7 @@ function draw() {
 
     // Create the new tank and add it to the array
     mytankid = socketID;
+    
     myTankIndex = tanks.length;
     var newTankObj = new Tank(startPos, startColor, mytankid, PlayerName)
     tanks.push(newTankObj);
@@ -235,7 +216,7 @@ function draw() {
   
     }
 
-    function ServerTankRemove(socketid) {
+    function ServerTankRemove(socketid) {             //############ Modified by Nic
 //      console.log('Remove Tank: ' + socketid);
 
       if(!tanks || myTankIndex < 0)
@@ -243,14 +224,64 @@ function draw() {
 
       for (var i = tanks.length - 1; i >= 0; i--) {
         if(tanks[i].tankid == socketid) {
-          tanks[i].destroyed = true;
+            tanks[i].destroyed = true;
           return;
         }
       }
     }
 
-    function ServerMoveTank(data) {
+    // ############################## Nic and Josh 11/21 ######################################################
+    //Reduce tank health
+    function ServerTankReduceHealth(socketid) {     
+      
+            if(!tanks || myTankIndex < 0)
+              return;
+      
+            for (var i = tanks.length - 1; i >= 0; i--) {
+              if(tanks[i].tankid == socketid) {
 
+                // Else, for every shot, decrement the health by 20
+                if (tanks[i].health > 0 ){                
+                  tanks[i].health -= 20; 
+
+                  //If health is zero, destroy tank
+                  if (tanks[i].health <= 0) {
+                    tanks[i].destroyed = true;
+                    tanks[i].strokeColor = 'black';
+                    tanks[i].textColor = 'black';
+                    tanks[i].barTransparency = 0;                    
+                    
+                    if(tanks.length === 1) {
+                      tanks[i].winTrasparency = 127;
+                    }
+                    return;
+                  }
+
+                  //####################### Josh ####################################
+
+                  //If health is 50 or less, change health indicator to yellow
+                  else if (tanks[i].health > 30 && tanks[i].health <= 50) {
+                    tanks[i].healthGreen = 255;
+                    tanks[i].healthRed = 255;
+                    return;
+                  }
+
+                  else if (tanks[i].health <= 30) {
+                    tanks[i].healthGreen = 0;
+                    tanks[i].healthRed = 255;
+                    return;
+                  }
+
+                  return;
+              }
+              
+            }
+        }
+    }
+// #################################################################################### End
+
+
+    function ServerMoveTank(data) {
       if(DEBUG && DEBUG==1)
         console.log('Move Tank: ' + JSON.stringify(data));
 
@@ -295,6 +326,7 @@ function draw() {
         }
       }
     }
+
 
     // Handle a restart command
     function Restart() {

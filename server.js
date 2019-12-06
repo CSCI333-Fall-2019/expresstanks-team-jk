@@ -113,7 +113,6 @@ io.sockets.on('connection',
       }
     );
 
-
     // Connected client moving Tank
     socket.on('ClientMoveTank',
       function(data) {
@@ -203,7 +202,8 @@ io.sockets.on('connection',
             var dist = Math.sqrt( Math.pow((shots[i].x-tanks[t].x), 2) + Math.pow((shots[i].y-tanks[t].y), 2) );
             console.log('Dist.: ' + dist);
 
-            if(dist < 20) {
+            
+            if(dist < 20.0) { //If distance is within 1 pixel of the tanks body, then it's a hit
               console.log('HIT ------------------------');
               console.log('shotid: ' + shots[i].shotid);
               console.log('Shot-tankid: ' + shots[i].tankid);
@@ -212,12 +212,23 @@ io.sockets.on('connection',
               console.log('Tank-tankid: ' + tanks[t].tankid);
               console.log('TankX: ' + tanks[t].x);
               console.log('TankY: ' + tanks[t].y);
-                  
-              // It was a hit, remove the tank and shot
-              // and tell everyone else its gone too
-              io.sockets.emit('ServerTankRemove', tanks[t].tankid);
-              tanks.splice(t,1);
-              shots.splice(i, 1);
+               
+              //if (tanks[t].health > 0) {
+                // Reduce the health of the tank
+                // and tell everyone else its health is reduced too
+                io.sockets.emit('ServerTankReduceHealth', tanks[t].tankid);    // Nic
+                shots.splice(i, 1);                                            // Nic
+              //}
+              
+      //################# Modified by Josh ############################################
+              if (tanks[t].destroyed === true) {
+                // If tank is destroyed remove tank and shots
+                // and tell everyone else its removed too
+                io.sockets.emit('ServerTankRemove', tanks[t].tankid);              
+                tanks.splice(t, 1);
+                shots.splice(i, 1);                
+              }
+     // #################################################################### End
               // just return for now to keep from unknown errors
               return;
             }
